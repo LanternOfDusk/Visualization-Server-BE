@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface ConnectionRepository extends JpaRepository<Connection, Integer> {
-    Optional<Connection> findByApplicationEntity(String ae);
+    Optional<Connection> findByAe(String ae);
 }

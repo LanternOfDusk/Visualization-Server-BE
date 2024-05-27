@@ -32,7 +32,7 @@ public class ApiService {
         return connectionRepository.findById(id).orElse(null);
     }
     public Connection getConnection(String ae) {
-        return connectionRepository.findByApplicationEntity(ae).orElse(null);
+        return connectionRepository.findByAe(ae).orElse(null);
     }
     public List<Connection> getConnectionList() {
         return connectionRepository.findAll();
