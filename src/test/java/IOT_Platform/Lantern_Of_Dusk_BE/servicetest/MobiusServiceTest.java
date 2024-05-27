@@ -70,6 +70,6 @@ public class MobiusServiceTest {
 
         // 반환된 Mock 객체의 속성이 예상한 대로 설정되었는지 확인
         Connection connection = connectionRepository.findAll().get(0);
-        assertEquals("device1", connection.getApplicationEntity());
+        assertEquals("device1", connection.getAe());
     }
 }
