@@ -1,8 +1,10 @@
 package IOT_Platform.Lantern_Of_Dusk_BE.service;
 
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Connection;
+import IOT_Platform.Lantern_Of_Dusk_BE.entity.Marker;
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Position;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.ConnectionRepository;
+import IOT_Platform.Lantern_Of_Dusk_BE.repository.MarkerRepository;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.PositionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,38 +16,45 @@ public class ApiService {
 
     private final ConnectionRepository connectionRepository;
     private final PositionRepository positionRepository;
+    private final MarkerRepository markerRepository;
 
     @Autowired
-    public ApiService(ConnectionRepository connectionRepository, PositionRepository positionRepository) {
+    public ApiService(ConnectionRepository connectionRepository, PositionRepository positionRepository, MarkerRepository markerRepository) {
         this.connectionRepository = connectionRepository;
         this.positionRepository = positionRepository;
+        this.markerRepository = markerRepository;
     }
 
-    public void save(Connection connection) {
+    public void saveConnection(Connection connection) {
         connectionRepository.save(connection);
     }
-
-    public Connection findById(int id) {
+    public Connection getConnection(int id) {
         return connectionRepository.findById(id).orElse(null);
     }
-
-    public Connection findByAe(String ae) {
+    public Connection getConnection(String ae) {
         return connectionRepository.findByApplicationEntity(ae).orElse(null);
     }
-
-    public List<Connection> findAll() {
+    public List<Connection> getConnectionList() {
         return connectionRepository.findAll();
     }
-
-    public void deleteById(int id) {
+    public void deleteDevice(int id) {
         connectionRepository.deleteById(id);
     }
 
-    public void deleteAll() {
-        connectionRepository.deleteAll();
+    public Position getPosition(int deviceId) {
+        return positionRepository.findTopByDeviceIdOrderByIdDesc(deviceId).orElse(null);
     }
 
-    public Position getApplicationEntityByDeviceId(int deviceId) {
-        return positionRepository.findTopByDeviceIdOrderByIdDesc(deviceId).orElse(null);
+    public void saveMarker(Marker marker) {
+        markerRepository.save(marker);
+    }
+    public List<Marker> getMarkerList() {
+        return markerRepository.findAll();
+    }
+    public Marker getMarker(int id) {
+        return markerRepository.findById(id).orElse(null);
+    }
+    public void deleteMarker(int id) {
+        markerRepository.deleteById(id);
     }
 }

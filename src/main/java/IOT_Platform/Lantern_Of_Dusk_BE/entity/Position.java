@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 public class Position {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;

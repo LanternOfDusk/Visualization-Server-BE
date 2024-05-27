@@ -13,10 +13,9 @@ import lombok.Setter;
 @AllArgsConstructor
 @Entity
 public class Connection {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     private String name;
-    private String applicationEntity;
+    private String ae;
 }
