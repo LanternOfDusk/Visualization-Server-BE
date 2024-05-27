@@ -43,7 +43,7 @@ public class MobiusService {
      */
     public String fetchDataFromMobiusForAE(String ae) {
         // Connection 테이블에서 AE에 대한 정보를 가져옵니다.
-        Optional<Connection> connection = connectionRepository.findByApplicationEntity(ae);
+        Optional<Connection> connection = connectionRepository.findByAe(ae);
 
         // Connection 정보가 없는 경우 예외 처리
         if (connection.isEmpty()) {
@@ -78,15 +78,10 @@ public class MobiusService {
             return containerData.toString();
         } catch (RestClientException e) {
             // 요청에 실패한 경우 에러를 로그에 기록하고 예외를 던집니다.
-            logger.error("Error fetching data for AE {} from Mobius: ", connection.getApplicationEntity(), e);
-            throw new RuntimeException("Failed to fetch data from Mobius for AE: " + connection.getApplicationEntity(), e);
+            logger.error("Error fetching data for AE {} from Mobius: ", connection.getAe(), e);
+            throw new RuntimeException("Failed to fetch data from Mobius for AE: " + connection.getAe(), e);
         }
     }
-
-
-
-
-
 
     /**
      * JSON 데이터를 파싱하여 Map으로 변환하는 메서드입니다.
