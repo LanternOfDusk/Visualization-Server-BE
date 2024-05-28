@@ -18,13 +18,13 @@ public class Position {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-    private int deviceId; // ae
+    private int deviceId;
     private double x;
     private double y;
     private double z;
-    private double roll; // 자이로 x
-    private double pitch; // y
-    private double yaw ; // z
+    private double roll;
+    private double pitch;
+    private double yaw ;
     @CreationTimestamp
     private LocalDateTime timeStamp;
 

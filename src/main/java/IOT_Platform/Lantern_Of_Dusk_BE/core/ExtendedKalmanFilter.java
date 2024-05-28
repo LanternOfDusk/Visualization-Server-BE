@@ -1,4 +1,4 @@
-package IOT_Platform.Lantern_Of_Dusk_BE.filter;
+package IOT_Platform.Lantern_Of_Dusk_BE.core;
 
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;

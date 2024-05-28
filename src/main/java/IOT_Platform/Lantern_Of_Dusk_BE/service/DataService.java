@@ -1,72 +1,186 @@
 package IOT_Platform.Lantern_Of_Dusk_BE.service;
 
+import IOT_Platform.Lantern_Of_Dusk_BE.core.ExtendedKalmanFilter;
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Connection;
-import IOT_Platform.Lantern_Of_Dusk_BE.entity.Data;
+import IOT_Platform.Lantern_Of_Dusk_BE.dto.RawDataDTO;
+import IOT_Platform.Lantern_Of_Dusk_BE.entity.Position;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.ConnectionRepository;
+import IOT_Platform.Lantern_Of_Dusk_BE.repository.PositionRepository;
+import org.apache.commons.math3.linear.MatrixUtils;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.client.RestTemplateBuilder;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
 
 @Service
 public class DataService {
 
-    private final MobiusService mobiusService;
+    private final RestTemplate restTemplate;
+
     private final ConnectionRepository connectionRepository;
-    private final FilterService filterService;
-    private final Map<String, List<Data>> dataArrays;
+    private final PositionRepository positionRepository;
+
+    private Map<Integer, Connection> connections;
+    private Map<Integer, ExtendedKalmanFilter> filters;
 
     @Autowired
-    public DataService(MobiusService mobiusService, ConnectionRepository connectionRepository, FilterService filterService) {
-        this.mobiusService = mobiusService;
+    public DataService(RestTemplateBuilder restTemplateBuilder, ConnectionRepository connectionRepository, PositionRepository positionRepository) {
+
+        this.restTemplate = restTemplateBuilder.build();
+
         this.connectionRepository = connectionRepository;
-        this.filterService = filterService;
-        this.dataArrays = new HashMap<>();
+        this.positionRepository = positionRepository;
+
+        this.connections = new HashMap<>();
+
+        setConnection();
     }
 
-    /**
-     * 7ms마다 Mobius 서버에서 데이터를 가져와 배열에 저장하는 메서드.
-     */
-    @Scheduled(fixedRate = 7)
-    public void fetchDataFromMobius() {
+    public void setConnection() {
+        for( Connection connection : connectionRepository.findAll()) {
+            // 초기 상태 벡터 및 공분산 행렬 설정 (모든 값이 0인 상태로 초기화)
+            RealMatrix initialState = MatrixUtils.createColumnRealMatrix(new double[]{0, 0, 0, 0, 0, 0}); // [x, y, z, roll, pitch, yaw]
+            RealMatrix initialCovariance = MatrixUtils.createRealDiagonalMatrix(new double[]{1, 1, 1, 1, 1, 1});
+            // 상태 전이 행렬, 프로세스 노이즈, 측정 노이즈, 관측 행렬 설정 (임의의 예시 값, 실제 응용에 따라 조정 필요)
+            RealMatrix stateTransition = MatrixUtils.createRealIdentityMatrix(6);
+            RealMatrix processNoise = MatrixUtils.createRealDiagonalMatrix(new double[]{0.1, 0.1, 0.1, 0.1, 0.1, 0.1});
+            RealMatrix measurementNoise = MatrixUtils.createRealDiagonalMatrix(new double[]{1, 1, 1, 1, 1, 1});
+            RealMatrix observationMatrix = MatrixUtils.createRealIdentityMatrix(6);
 
-        // 데이터베이스에서 모든 Connection을 가져옵니다.
-        List<Connection> connections = connectionRepository.findAll();
+            ExtendedKalmanFilter filter = new ExtendedKalmanFilter(initialState, initialCovariance, stateTransition, processNoise, measurementNoise, observationMatrix);
 
-        for (Connection connection : connections) {
-            String aeName = connection.getAe();
-
-            try {
-                // Mobius 서버에서 JSON 데이터를 가져옴
-                String jsonData = mobiusService.fetchDataFromMobiusForAE(aeName);
-                // JSON 데이터를 Data 객체로 변환
-                Data data = Data.fromJson(jsonData);
-
-                // 해당 AE의 데이터 배열을 가져옴
-                List<Data> dataArray = dataArrays.computeIfAbsent(aeName, k -> new ArrayList<>());
-
-                // 데이터 배열에 추가
-                dataArray.add(data);
-
-                // 1초 동안의 데이터(약 143개)를 초과하면 앞의 데이터를 제거
-                if (dataArray.size() > 143) {
-                    dataArray.remove(0);
-                }
-
-                // 데이터 배열이 143개가 되면 필터링 수행
-                if (dataArray.size() == 143) {
-                    filterService.applyFilter(new ArrayList<>(dataArray), Integer.parseInt(connection.getName()));
-                }
-            } catch (Exception e) {
-                // 에러 처리
-                System.err.println("Error fetching data for AE " + aeName + ": " + e.getMessage());
-            }
+            connections.put(connection.getId(), connection);
+            filters.put(connection.getId(), filter);
         }
     }
 
-    //테스트용 매서드
-    public List<Data> getDataArray(String aeName) {
-        return dataArrays.getOrDefault(aeName, new ArrayList<>());
+    // @Scheduled(fixedRate = 1000)
+    public void processData() {
+        for (Connection connection : connections.values()) {
+            String aeName = connection.getAe();
+
+            List<RawDataDTO> rawDataList = getRawData(aeName);
+            Position position = applyFilter(rawDataList, connection.getId());
+            saveData(position);
+        }
+    }
+
+    @Value("${mobius.url}")
+    private String mobiusServerUrl;
+    @Value("${mobius.cnt.imu}")
+    private String mobiusImuCntName;
+    @Value("${mobius.cnt.atm}")
+    private String mobiusAtmCntName;
+    public List<RawDataDTO> getRawData(String ae) {
+        String urlIMU = mobiusServerUrl + ae + "/" + mobiusImuCntName + "?fu=2&la=143&ty=4&rcn=4";
+        String urlATM = mobiusServerUrl + ae + "/" + mobiusAtmCntName + "?fu=2&la=143&ty=4&rcn=4";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Accept", "application/json");
+        headers.set("X-M2M-RI", "12345");
+        headers.set("X-M2M-Origin", "SOrigin");
+        HttpEntity request = new HttpEntity(headers);
+
+        List<RawDataDTO> result = new ArrayList<>();
+
+        try {
+            ResponseEntity<String> responseIMU = restTemplate.exchange(
+                    urlIMU,
+                    HttpMethod.GET,
+                    request,
+                    String.class
+            );
+            ResponseEntity<String> responseATM = restTemplate.exchange(
+                    urlATM,
+                    HttpMethod.GET,
+                    request,
+                    String.class
+            );
+
+            JSONArray rawDataIMU = new JSONObject(responseIMU.getBody()).getJSONObject("m2m:rsp").getJSONArray("m2m:cin");
+            JSONArray rawDataATM = new JSONObject(responseATM.getBody()).getJSONObject("m2m:rsp").getJSONArray("m2m:cin");
+
+            for (int i = 0; i < 143; i++) {
+                RawDataDTO rawDataDTO = new RawDataDTO();
+
+                JSONObject objIMU = ((JSONObject) rawDataIMU.get(i)).getJSONObject("con");
+                JSONObject objATM = ((JSONObject) rawDataATM.get(i)).getJSONObject("con");
+
+                // TODO: 5/29/24 테스트 코드 입력 후 구현
+                System.out.println(objATM.toString());
+                System.out.println(objIMU.toString());
+
+                rawDataDTO.setAx((Double) objIMU.get("ax"));
+                rawDataDTO.setAy((Double) objIMU.get("ay"));
+                rawDataDTO.setAz((Double) objIMU.get("az"));
+                rawDataDTO.setGx((Double) objIMU.get("gx"));
+                rawDataDTO.setGy((Double) objIMU.get("gy"));
+                rawDataDTO.setGz((Double) objIMU.get("gz"));
+                rawDataDTO.setAtm((Double) objATM.get("atm"));
+
+                result.add(rawDataDTO);
+            }
+
+        } catch (RestClientException e) {
+            System.out.println("Error fetching data for " + ae + " from Mobius");
+            System.out.println(e);
+        }
+
+        return result;
+    }
+
+    public Position applyFilter(List<RawDataDTO> rawDataDTOList, int deviceId) {
+        for (RawDataDTO rawDataDTO : rawDataDTOList) {
+            // 측정값 벡터 생성
+            RealMatrix measurement = MatrixUtils.createColumnRealMatrix(new double[]{
+                    rawDataDTO.getAx(), rawDataDTO.getAy(), rawDataDTO.getAx(),
+                    rawDataDTO.getGx(), rawDataDTO.getGy(), rawDataDTO.getGz()
+            });
+
+            // 예측 단계
+            filters.get(deviceId).predict();
+
+            // 업데이트 단계
+            filters.get(deviceId).update(measurement);
+        }
+
+        // 필터링된 상태 벡터 가져오기
+        RealMatrix state = filters.get(deviceId).getState();
+
+        // 상태 벡터에서 위치 정보 추출
+        double x = state.getEntry(0, 0);
+        double y = state.getEntry(1, 0);
+        double z = state.getEntry(2, 0);
+        double roll = state.getEntry(3, 0);
+        double pitch = state.getEntry(4, 0);
+        double yaw = state.getEntry(5, 0);
+
+        // 위치 정보 저장
+        Position position = new Position();
+        position.setDeviceId(deviceId);
+        position.setX(x);
+        position.setY(y);
+        position.setZ(z);
+        position.setRoll(roll);
+        position.setPitch(pitch);
+        position.setYaw(yaw);
+
+        return position;
+    }
+
+    public void saveData(Position position) {
+        positionRepository.save(position);
     }
 }
