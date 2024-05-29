@@ -66,7 +66,7 @@ public class DataService {
         }
     }
 
-    @Scheduled(fixedRate = 1000)
+    //@Scheduled(fixedRate = 1000)
     public void processData() {
         for (Connection connection : connections.values()) {
             List<RawDataDTO> rawDataList = getRawData(connection.getAe());
