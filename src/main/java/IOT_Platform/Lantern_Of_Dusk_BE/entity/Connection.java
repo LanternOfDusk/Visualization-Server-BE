@@ -12,8 +12,6 @@ public class Connection {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
-
-    @Getter
     private String name;
     private String ae;
 }

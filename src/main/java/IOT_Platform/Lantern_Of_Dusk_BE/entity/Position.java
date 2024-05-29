@@ -27,18 +27,5 @@ public class Position {
     private double yaw ;
     @CreationTimestamp
     private LocalDateTime timeStamp;
-
-    @Override
-    public String toString() {
-        return "Position{" +
-                "deviceId=" + deviceId +
-                ", x=" + x +
-                ", y=" + y +
-                ", z=" + z +
-                ", roll=" + roll +
-                ", pitch=" + pitch +
-                ", yaw=" + yaw +
-                '}';
-    }
 }
 

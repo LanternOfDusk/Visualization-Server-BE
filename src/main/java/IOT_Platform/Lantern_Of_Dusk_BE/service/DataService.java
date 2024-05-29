@@ -44,6 +44,7 @@ public class DataService {
         this.positionRepository = positionRepository;
 
         this.connections = new HashMap<>();
+        this.filters = new HashMap<>();
 
         setConnection();
     }
@@ -51,14 +52,13 @@ public class DataService {
     public void setConnection() {
         for( Connection connection : connectionRepository.findAll()) {
             // 초기 상태 벡터 및 공분산 행렬 설정 (모든 값이 0인 상태로 초기화)
+            // 상태 전이 행렬, 프로세스 노이즈, 측정 노이즈, 관측 행렬 설정 (임의의 예시 값, 실제 응용에 따라 조정 필요)
             RealMatrix initialState = MatrixUtils.createColumnRealMatrix(new double[]{0, 0, 0, 0, 0, 0}); // [x, y, z, roll, pitch, yaw]
             RealMatrix initialCovariance = MatrixUtils.createRealDiagonalMatrix(new double[]{1, 1, 1, 1, 1, 1});
-            // 상태 전이 행렬, 프로세스 노이즈, 측정 노이즈, 관측 행렬 설정 (임의의 예시 값, 실제 응용에 따라 조정 필요)
             RealMatrix stateTransition = MatrixUtils.createRealIdentityMatrix(6);
             RealMatrix processNoise = MatrixUtils.createRealDiagonalMatrix(new double[]{0.1, 0.1, 0.1, 0.1, 0.1, 0.1});
             RealMatrix measurementNoise = MatrixUtils.createRealDiagonalMatrix(new double[]{1, 1, 1, 1, 1, 1});
             RealMatrix observationMatrix = MatrixUtils.createRealIdentityMatrix(6);
-
             ExtendedKalmanFilter filter = new ExtendedKalmanFilter(initialState, initialCovariance, stateTransition, processNoise, measurementNoise, observationMatrix);
 
             connections.put(connection.getId(), connection);
@@ -66,12 +66,10 @@ public class DataService {
         }
     }
 
-    // @Scheduled(fixedRate = 1000)
+    @Scheduled(fixedRate = 1000)
     public void processData() {
         for (Connection connection : connections.values()) {
-            String aeName = connection.getAe();
-
-            List<RawDataDTO> rawDataList = getRawData(aeName);
+            List<RawDataDTO> rawDataList = getRawData(connection.getAe());
             Position position = applyFilter(rawDataList, connection.getId());
             saveData(position);
         }
