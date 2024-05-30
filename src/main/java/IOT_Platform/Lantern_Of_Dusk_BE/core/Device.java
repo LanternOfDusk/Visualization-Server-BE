@@ -16,10 +16,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class Device {
@@ -33,7 +33,7 @@ public class Device {
 
     private Queue<Position> positionQueue = new LinkedList<>();
 
-    private double samplePeriod = 5 / 1000;
+    private double samplePeriod = 5.0 / 1000.0;
     private MahonyAHRS mahonyAHRS = new MahonyAHRS(samplePeriod);
 
     private final PositionRepository positionRepository;
@@ -46,15 +46,18 @@ public class Device {
 
     public void run() {
         getData();
+        System.out.println();
         processData();
+        System.out.println("process data end");
         save();
+        System.out.println("save end");
     }
 
     public void getData() {
         String host = "http://203.253.128.177:7579/Mobius/";
 
-        String urlIMU = host + ae + "/" + "IMU" + "?fu=2&la=4&ty=4&rcn=4";
-        String urlATM = host + ae + "/" + "ATM" + "?fu=2&la=4&ty=4&rcn=4";
+        String urlIMU = host + ae + "/" + "MPU?fu=2&la=4&ty=4&rcn=4";
+        String urlATM = host + ae + "/" + "ATM?fu=2&la=4&ty=4&rcn=4";
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
@@ -86,18 +89,22 @@ public class Device {
             double[] rawATMData = new double[4];
 
             for (int i = 0; i < 4; i++) {
+
                 JSONObject objIMU = ((JSONObject) rawIMUDataList.get(i)).getJSONObject("con");
                 JSONObject objATM = ((JSONObject) rawATMDataList.get(i)).getJSONObject("con");
 
-                rawAccelData[i][0] = (Double) objIMU.get("ax");
-                rawAccelData[i][1] = (Double) objIMU.get("ay");
-                rawAccelData[i][2] = (Double) objIMU.get("az");
+                rawAccelData[i][0] = objIMU.getDouble("ax");
+                rawAccelData[i][1] = objIMU.getDouble("ay");
+                rawAccelData[i][2] = objIMU.getDouble("az");
 
-                rawGyroData[i][0] = (Double) objIMU.get("gx");
-                rawGyroData[i][1] = (Double) objIMU.get("gy");
-                rawGyroData[i][2] = (Double) objIMU.get("gz");
 
-                rawATMData[i] = (Double) objATM.get("atm");
+                rawGyroData[i][0] = objIMU.getDouble("gx");
+                rawGyroData[i][1] = objIMU.getDouble("gy");
+                rawGyroData[i][2] = objIMU.getDouble("gz");
+
+                rawATMData[i] = objATM.getDouble("atm");
+
+                System.out.println("GetData" + i + " " + objIMU);
             }
 
             accelQueue.add(rawAccelData);
@@ -114,28 +121,37 @@ public class Device {
         double[][] accelData = accelQueue.peek();
         double[][] gyroData = gyroQueue.peek();
 
+        System.out.println("Accel : " + Arrays.deepToString(accelData));
+        System.out.println("Gyro : " + Arrays.deepToString(gyroData));
+
         int len = accelData.length;
 
         // 회전 벡터 마호니 필터 및 계산
-        RealMatrix[] R = new RealMatrix[len];
+        double[][] R = new double[len][3];
         for (int i = 0; i < len; i++) {
             mahonyAHRS.updateIMU(new Vector3D(gyroData[i]), new Vector3D(accelData[i]));
-            R[i] = new Array2DRowRealMatrix(mahonyAHRS.getQuaternion());
+            R[i] = mahonyAHRS.getQuaternion();
+            System.out.println("R" + i + " : " + R[i]);
         }
 
         // 회전 적용된 가속도 벡터 계산
         double[][] tcAcc = new double[len][3];
         for (int i = 0; i < len; i++) {
+            System.out.println("loop in : " + accelData[i][0] + ", " + accelData[i][1] + ", " + accelData[i][2]);
             tcAcc[i] = R[i].preMultiply(accelData[i]);
+            System.out.println(tcAcc[i][0] + tcAcc[i][1] + tcAcc[i][2]);
         }
 
         // 중력 가속도를 제거한 가속도 벡터 계산
         double[][] linAcc = new double[len][3];
         for (int i = 0; i < len; i++) {
+            System.out.println(tcAcc[i][0] * 9.81);
             linAcc[i][0] = tcAcc[i][0] * 9.81;
             linAcc[i][1] = tcAcc[i][1] * 9.81;
             linAcc[i][2] = (tcAcc[i][2] - 1.0) * 9.81;
         }
+
+        System.out.println("test1");
 
         // 선형 속도 계산 (가속도 적분)
         double[][] linVel = new double[len][3];
@@ -144,7 +160,7 @@ public class Device {
                 linVel[i][j] = linVel[i - 1][j] + linAcc[i][j] * samplePeriod;
             }
         }
-
+        System.out.println("test2");
         // 드리프트를 제거하기 위해 고역통과 필터 적용
         //double[][] linVelHP = highPassFilter(linVel, samplePeriod, 0.1);
         double[][] linVelHP = linVel;
@@ -156,7 +172,7 @@ public class Device {
                 linPos[i][j] = linPos[i - 1][j] + linVelHP[i][j] * samplePeriod;
             }
         }
-
+        System.out.println("test3");
         // 드리프트를 제거하기 위해 고역통과 필터 적용
         //double[][] linPosHP = highPassFilter(linPos, samplePeriod, 0.1);
         double[][] linPosHP = linPos;
@@ -182,8 +198,6 @@ public class Device {
     }
 
     public void start() {
-        System.out.println("start");
-
         Runnable task = () -> {
             run();
         };
