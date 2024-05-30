@@ -1,97 +1,60 @@
 package IOT_Platform.Lantern_Of_Dusk_BE.core;
 
-import org.apache.commons.math3.linear.ArrayRealVector;
-import org.apache.commons.math3.linear.RealVector;
+import org.apache.commons.math3.complex.Quaternion;
+import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
-public class MahonyFilter {
+public class MahonyAHRS {
+    private double SamplePeriod;
+    private Quaternion quaternion;
+    private double Kp;
+    private double Ki;
+    private Vector3D eInt;
 
-    private double samplePeriod;
-    private RealVector quaternion;
-    private double kp;
-    private double ki;
-    private RealVector eInt;
-
-    public MahonyFilter(double samplePeriod, double[] quaternion, double kp, double ki) {
-        this.samplePeriod = samplePeriod;
-        this.quaternion = new ArrayRealVector(quaternion);
-        this.kp = kp;
-        this.ki = ki;
-        this.eInt = new ArrayRealVector(new double[]{0, 0, 0});
+    public MahonyAHRS(double SamplePeriod) {
+        this.SamplePeriod = SamplePeriod;
+        this.quaternion = new Quaternion(1, 0, 0, 0);
+        this.Kp = 1.0;
+        this.Ki = 0.0;
+        this.eInt = new Vector3D(0, 0, 0);
     }
 
-    private RealVector quaternProd(RealVector a, RealVector b) {
-        double w1 = a.getEntry(0);
-        double x1 = a.getEntry(1);
-        double y1 = a.getEntry(2);
-        double z1 = a.getEntry(3);
-
-        double w2 = b.getEntry(0);
-        double x2 = b.getEntry(1);
-        double y2 = b.getEntry(2);
-        double z2 = b.getEntry(3);
-
-        return new ArrayRealVector(new double[]{
-                w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-                w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-                w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-                w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2
-        });
+    private Quaternion quaternProd(Quaternion a, Quaternion b) {
+        return a.multiply(b);
+    }
+    private Vector3D normalize(Vector3D v) {
+        return v.normalize();
     }
 
-    private RealVector quaternConj(RealVector q) {
-        return new ArrayRealVector(new double[]{
-                q.getEntry(0), -q.getEntry(1), -q.getEntry(2), -q.getEntry(3)
-        });
-    }
+    public void updateIMU(Vector3D gyro, Vector3D accel) {
+        Quaternion q = quaternion;
 
-    public void updateIMU(double[] gyroscope, double[] accelerometer) {
-        RealVector q = this.quaternion;
+        if (accel.getNorm() == 0) return;
 
-        RealVector acc = new ArrayRealVector(accelerometer);
-        if (acc.getNorm() == 0) return;
-        acc = acc.mapDivide(acc.getNorm());
+        accel = normalize(accel);
 
-        RealVector v = new ArrayRealVector(new double[]{
-                2 * (q.getEntry(1) * q.getEntry(3) - q.getEntry(0) * q.getEntry(2)),
-                2 * (q.getEntry(0) * q.getEntry(1) + q.getEntry(2) * q.getEntry(3)),
-                q.getEntry(0) * q.getEntry(0) - q.getEntry(1) * q.getEntry(1) - q.getEntry(2) * q.getEntry(2) + q.getEntry(3) * q.getEntry(3)
-        });
+        Vector3D v = new Vector3D(
+                2 * (q.getQ1() * q.getQ3() - q.getQ0() * q.getQ2()),
+                2 * (q.getQ0() * q.getQ1() + q.getQ2() * q.getQ3()),
+                q.getQ0() * q.getQ0() - q.getQ1() * q.getQ1() - q.getQ2() * q.getQ2() + q.getQ3() * q.getQ3()
+        );
 
-        RealVector e = crossProduct(acc, v);
+        Vector3D e = accel.crossProduct(v);
 
-        if (ki > 0) {
-            eInt = eInt.add(e.mapMultiply(samplePeriod));
+        if (Ki > 0) {
+            eInt = eInt.add(e.scalarMultiply(SamplePeriod));
         } else {
-            eInt = new ArrayRealVector(new double[]{0, 0, 0});
+            eInt = new Vector3D(0, 0, 0);
         }
 
-        // qDot 계산을 위한 배열 준비
-        double[] gyroArray = {0, gyroscope[0], gyroscope[1], gyroscope[2]};
-        RealVector gyroVector = new ArrayRealVector(gyroArray);
+        gyro = gyro.add(e.scalarMultiply(Kp)).add(eInt.scalarMultiply(Ki));
 
-        // Quaternion 곱셈을 위한 준비
-        RealVector qDot2 = quaternProd(q, gyroVector).mapMultiply(0.5);
+        Quaternion qDot = quaternProd(q, new Quaternion(0, gyro.toArray())).multiply(0.5);
 
-        // 위 코드에서, gyroscope 배열을 직접 RealVector 생성자에 넣어 0을 추가하였습니다.
-
-
-        q = q.add(qDot2.mapMultiply(samplePeriod));
-        quaternion = q.mapDivide(q.getNorm());
+        q = q.add(qDot.multiply(SamplePeriod));
+        quaternion = q.normalize();
     }
 
-    private RealVector crossProduct(RealVector u, RealVector v) {
-        double u1 = u.getEntry(0);
-        double u2 = u.getEntry(1);
-        double u3 = u.getEntry(2);
-        double v1 = v.getEntry(0);
-        double v2 = v.getEntry(1);
-        double v3 = v.getEntry(2);
-
-        return new ArrayRealVector(new double[]{
-                u2 * v3 - u3 * v2,
-                u3 * v1 - u1 * v3,
-                u1 * v2 - u2 * v1
-        });
+    public double[] getQuaternion() {
+        return quaternion.getVectorPart();
     }
 }
-

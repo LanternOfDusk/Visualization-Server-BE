@@ -1,4 +1,4 @@
-import IOT_Platform.Lantern_Of_Dusk_BE.core.Butterworth;
+package IOT_Platform.Lantern_Of_Dusk_BE.core;
 
 public class Filter {
     private double[] a;
@@ -66,24 +66,24 @@ public class Filter {
         }
         return y;
     }
-
-    public static void main(String[] args) {
-        double samplePeriod = 0.01; // 샘플링 주기
-        double filtCutOff = 0.1; // 컷오프 주파수
-        int order = 1; // 필터 차수
-
-        // 샘플 데이터
-        double[] linVel = { /* 신호 데이터 */ };
-
-        // Butterworth 필터 설계
-        double[][] ba = Butterworth.designHighPassFilter(order, filtCutOff, 1 / samplePeriod);
-        double[] b = ba[0];
-        double[] a = ba[1];
-
-        // 필터 적용
-        Filter filter = new Filter(b, a);
-        double[] linVelHP = filter.filtfilt(linVel);
-
-        // 필터링된 신호 사용
-    }
+//
+//    public static void main(String[] args) {
+//        double samplePeriod = 0.01; // 샘플링 주기
+//        double filtCutOff = 0.1; // 컷오프 주파수
+//        int order = 1; // 필터 차수
+//
+//        // 샘플 데이터
+//        double[] linVel = { /* 신호 데이터 */ };
+//
+//        // Butterworth 필터 설계
+//        double[][] ba = Butterworth.designHighPassFilter(order, filtCutOff, 1 / samplePeriod);
+//        double[] b = ba[0];
+//        double[] a = ba[1];
+//
+//        // 필터 적용
+//        Filter filter = new Filter(b, a);
+//        double[] linVelHP = filter.filtfilt(linVel);
+//
+//        // 필터링된 신호 사용
+//    }
 }
