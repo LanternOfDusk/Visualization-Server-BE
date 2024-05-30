@@ -13,19 +13,19 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.LinkedList;
 import java.util.Queue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class Device {
 
     private int id;
     private String ae;
-
-    private boolean process = false;
 
     private Queue<double[][]> accelQueue = new LinkedList<>();
     private Queue<double[][]> gyroQueue = new LinkedList<>();
@@ -44,10 +44,7 @@ public class Device {
         this.positionRepository = positionRepository;
     }
 
-    @Scheduled(fixedRate = 20)
     public void run() {
-        if (!process) return;
-
         getData();
         processData();
         save();
@@ -184,8 +181,13 @@ public class Device {
         positionRepository.save(positionQueue.peek());
     }
 
-    public void setProcess(boolean process) {
-        System.out.println("saving data");
-        this.process = process;
+    public void start() {
+        System.out.println("start");
+
+        Runnable task = () -> {
+            run();
+        };
+
+        Executors.newScheduledThreadPool(1).scheduleAtFixedRate(task, 0, 20, TimeUnit.MILLISECONDS);
     }
 }
