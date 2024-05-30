@@ -1,53 +1,90 @@
 package IOT_Platform.Lantern_Of_Dusk_BE.core;
 
-import org.apache.commons.math3.complex.Quaternion;
-import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
-
 public class MahonyAHRS {
+
     private double samplePeriod;
-    private Quaternion quaternion;
-    private double Kp;
-    private double Ki;
-    private Vector3D eInt;
+    private double[] quaternion;
+    private double kp;
+    private double ki;
+    private double[] eInt;
 
     public MahonyAHRS(double samplePeriod) {
         this.samplePeriod = samplePeriod;
-        this.quaternion = new Quaternion(1, 0, 0, 0);
-        this.Kp = 1.0;
-        this.Ki = 0.0;
-        this.eInt = new Vector3D(0, 0, 0);
+        this.quaternion = new double[]{1, 0, 0, 0}; // Quaternion initialization
+        this.kp = 1;
+        this.ki = 0;
+        this.eInt = new double[]{0, 0, 0};
     }
 
-    public void updateIMU(Vector3D gyro, Vector3D accel) {
-        Quaternion q = quaternion;
+    public void updateIMU(double[] gyroscope, double[] accelerometer) {
+        if (norm(accelerometer) == 0) return;
+        accelerometer = normalize(accelerometer);
 
-        if (accel.getNorm() == 0) return;
+        double[] v = {
+                2 * (quaternion[1] * quaternion[3] - quaternion[0] * quaternion[2]),
+                2 * (quaternion[0] * quaternion[1] + quaternion[2] * quaternion[3]),
+                quaternion[0] * quaternion[0] - quaternion[1] * quaternion[1] - quaternion[2] * quaternion[2] + quaternion[3] * quaternion[3]
+        };
 
-        accel = accel.normalize();
+        double[] e = crossProduct(accelerometer, v);
 
-        Vector3D v = new Vector3D(
-                2 * (q.getQ1() * q.getQ3() - q.getQ0() * q.getQ2()),
-                2 * (q.getQ0() * q.getQ1() + q.getQ2() * q.getQ3()),
-                q.getQ0() * q.getQ0() - q.getQ1() * q.getQ1() - q.getQ2() * q.getQ2() + q.getQ3() * q.getQ3()
-        );
-
-        Vector3D e = accel.crossProduct(v);
-
-        if (Ki > 0) {
-            eInt = eInt.add(e.scalarMultiply(samplePeriod));
+        if (ki > 0) {
+            eInt[0] += e[0] * samplePeriod;
+            eInt[1] += e[1] * samplePeriod;
+            eInt[2] += e[2] * samplePeriod;
         } else {
-            eInt = new Vector3D(0, 0, 0);
+            eInt = new double[]{0, 0, 0};
         }
 
-        gyro= gyro.add(e.scalarMultiply(Kp)).add(eInt.scalarMultiply(Ki));
+        gyroscope[0] += kp * e[0] + ki * eInt[0];
+        gyroscope[1] += kp * e[1] + ki * eInt[1];
+        gyroscope[2] += kp * e[2] + ki * eInt[2];
 
-        Quaternion qDot = quaternion.multiply(new Quaternion(0, gyro.getX(), gyro.getY(), gyro.getZ())).multiply(0.5);
+        double[] qDot = quaternProd(quaternion, new double[]{0, gyroscope[0], gyroscope[1], gyroscope[2]});
+        qDot[0] *= 0.5 * samplePeriod;
+        qDot[1] *= 0.5 * samplePeriod;
+        qDot[2] *= 0.5 * samplePeriod;
+        qDot[3] *= 0.5 * samplePeriod;
 
-        quaternion = quaternion.add(qDot.multiply(samplePeriod));
-        quaternion = quaternion.normalize();
+        quaternion[0] += qDot[0];
+        quaternion[1] += qDot[1];
+        quaternion[2] += qDot[2];
+        quaternion[3] += qDot[3];
+
+        quaternion = normalize(quaternion); // Keep quaternion array size 4
     }
 
     public double[] getQuaternion() {
-        return quaternion.getVectorPart();
+        return quaternion; // Return quaternion array
+    }
+
+    private double norm(double[] vec) {
+        return Math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2]);
+    }
+
+    private double[] normalize(double[] vec) {
+        double norm = norm(vec);
+        if (vec.length == 3) {
+            return new double[]{vec[0] / norm, vec[1] / norm, vec[2] / norm};
+        } else {
+            return new double[]{vec[0] / norm, vec[1] / norm, vec[2] / norm, vec[3] / norm}; // Keep quaternion array size 4
+        }
+    }
+
+    private double[] quaternProd(double[] a, double[] b) {
+        return new double[]{
+                a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+                a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+                a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+                a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]
+        };
+    }
+
+    private double[] crossProduct(double[] a, double[] b) {
+        return new double[]{
+                a[1] * b[2] - a[2] * b[1],
+                a[2] * b[0] - a[0] * b[2],
+                a[0] * b[1] - a[1] * b[0]
+        };
     }
 }
