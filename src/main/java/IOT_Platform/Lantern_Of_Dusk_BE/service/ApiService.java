@@ -41,10 +41,6 @@ public class ApiService {
         connectionRepository.deleteById(id);
     }
 
-    public Position getPosition(int deviceId) {
-        return positionRepository.findTopByDeviceIdOrderByIdDesc(deviceId).orElse(null);
-    }
-
     public void saveMarker(Marker marker) {
         markerRepository.save(marker);
     }

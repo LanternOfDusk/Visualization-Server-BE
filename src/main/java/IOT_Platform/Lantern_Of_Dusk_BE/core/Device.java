@@ -2,9 +2,6 @@ package IOT_Platform.Lantern_Of_Dusk_BE.core;
 
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Position;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.PositionRepository;
-import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
-import org.apache.commons.math3.geometry.euclidean.threed.RotationOrder;
-import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.MatrixUtils;
 import org.apache.commons.math3.linear.RealMatrix;
@@ -56,8 +53,8 @@ public class Device {
     public void getData() {
         String host = "http://203.253.128.177:7579/Mobius/";
 
-        String urlIMU = host + ae + "/" + "MPU?fu=2&la=4&ty=4&rcn=4";
-        String urlATM = host + ae + "/" + "ATM?fu=2&la=4&ty=4&rcn=4";
+        String urlIMU = host + ae + "/" + "MPU?fu=2&la=200&ty=4&rcn=4";
+        String urlATM = host + ae + "/" + "ATM?fu=2&la=200&ty=4&rcn=4";
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Accept", "application/json");
@@ -84,9 +81,9 @@ public class Device {
             JSONArray rawIMUDataList = new JSONObject(responseIMU.getBody()).getJSONObject("m2m:rsp").getJSONArray("m2m:cin");
             JSONArray rawATMDataList = new JSONObject(responseATM.getBody()).getJSONObject("m2m:rsp").getJSONArray("m2m:cin");
 
-            double[][] rawAccelData = new double[4][3];
-            double[][] rawGyroData = new double[4][3];
-            double[] rawATMData = new double[4];
+            double[][] rawAccelData = new double[100][3];
+            double[][] rawGyroData = new double[100][3];
+            double[] rawATMData = new double[100];
 
             for (int i = 0; i < 4; i++) {
 
@@ -195,7 +192,6 @@ public class Device {
 
         for (int i = 0; i < 3; i++) {
             currentRotation[i] += linPos.getRow(len-1)[i];
-            currentPosition[i] += eulerR[i];
         }
 
         System.out.println(Arrays.toString(currentPosition));
@@ -205,9 +201,9 @@ public class Device {
         position.setX(currentPosition[0]);
         position.setY(currentPosition[1]);
         position.setZ(currentPosition[2]);
-        position.setPitch(currentRotation[0]);
-        position.setYaw(currentRotation[1]);
-        position.setRoll(currentRotation[2]);
+        position.setPitch(eulerR[0]);
+        position.setYaw(eulerR[1]);
+        position.setRoll(eulerR[2]);
 
         positionQueue.add(position);
     }
@@ -264,7 +260,7 @@ public class Device {
         };
         Executors
                 .newScheduledThreadPool(1)
-                .scheduleAtFixedRate(task, 0, 20, TimeUnit.MILLISECONDS);
+                .scheduleAtFixedRate(task, 0, 1000, TimeUnit.MILLISECONDS);
         //run();
     }
 }

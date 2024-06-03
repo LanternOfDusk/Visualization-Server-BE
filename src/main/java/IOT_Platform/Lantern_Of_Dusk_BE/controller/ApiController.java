@@ -88,19 +88,6 @@ public class ApiController {
     }
 
 
-    // GET /api/position/:deviceId ⇒ deviceId 위치정보 / (int deviceId)
-    @GetMapping("/position/{deviceId}")
-    public ResponseEntity<Position> readPosition(@PathVariable int deviceId) {
-        try {
-            if (apiService.getConnection(deviceId) != null && apiService.getPosition(deviceId) != null) {
-                Position position = apiService.getPosition(deviceId);
-                return new ResponseEntity<>(position, HttpStatus.OK);
-            } else return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
     // GET /api/marker/list ⇒ 마커 정보 / x
     @GetMapping("/marker/list")
     public List<Marker> readMarkerList() {

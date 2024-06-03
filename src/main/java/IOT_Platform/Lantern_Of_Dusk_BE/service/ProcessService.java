@@ -2,6 +2,7 @@ package IOT_Platform.Lantern_Of_Dusk_BE.service;
 
 import IOT_Platform.Lantern_Of_Dusk_BE.core.Device;
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Connection;
+import IOT_Platform.Lantern_Of_Dusk_BE.entity.Position;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.ConnectionRepository;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.MarkerRepository;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.PositionRepository;
@@ -23,6 +24,10 @@ public class ProcessService {
     public ProcessService(ConnectionRepository connectionRepository, PositionRepository positionRepository, MarkerRepository markerRepository) {
         this.connectionRepository = connectionRepository;
         this.positionRepository = positionRepository;
+    }
+
+    public Position getPosition(int deviceId) {
+        return positionRepository.findTopByDeviceIdOrderByIdDesc(deviceId).orElse(null);
     }
 
     public void startProcess() {
