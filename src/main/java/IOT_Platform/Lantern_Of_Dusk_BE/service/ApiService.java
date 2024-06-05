@@ -2,10 +2,8 @@ package IOT_Platform.Lantern_Of_Dusk_BE.service;
 
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Connection;
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Marker;
-import IOT_Platform.Lantern_Of_Dusk_BE.entity.Position;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.ConnectionRepository;
 import IOT_Platform.Lantern_Of_Dusk_BE.repository.MarkerRepository;
-import IOT_Platform.Lantern_Of_Dusk_BE.repository.PositionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,13 +13,11 @@ import java.util.List;
 public class ApiService {
 
     private final ConnectionRepository connectionRepository;
-    private final PositionRepository positionRepository;
     private final MarkerRepository markerRepository;
 
     @Autowired
-    public ApiService(ConnectionRepository connectionRepository, PositionRepository positionRepository, MarkerRepository markerRepository) {
+    public ApiService(ConnectionRepository connectionRepository, MarkerRepository markerRepository) {
         this.connectionRepository = connectionRepository;
-        this.positionRepository = positionRepository;
         this.markerRepository = markerRepository;
     }
 

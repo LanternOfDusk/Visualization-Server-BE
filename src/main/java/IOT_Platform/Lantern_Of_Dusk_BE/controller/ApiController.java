@@ -2,7 +2,6 @@ package IOT_Platform.Lantern_Of_Dusk_BE.controller;
 
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Connection;
 import IOT_Platform.Lantern_Of_Dusk_BE.entity.Marker;
-import IOT_Platform.Lantern_Of_Dusk_BE.entity.Position;
 import IOT_Platform.Lantern_Of_Dusk_BE.service.ApiService;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
